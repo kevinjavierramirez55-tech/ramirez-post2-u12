@@ -1,10 +1,19 @@
 package com.empresa.catalogo.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 public class ProductoResponseDTO {
 
+    @Schema(description = "Identificador generado del producto", example = "1")
     private Long id;
+
+    @Schema(description = "Nombre del producto", example = "Laptop HP ProBook")
     private String nombre;
+
+    @Schema(description = "Precio en pesos colombianos", example = "3500000.00")
     private Double precio;
+
+    @Schema(description = "Categoria del producto", example = "ELECTRONICA")
     private String categoria;
 
     public Long getId() {

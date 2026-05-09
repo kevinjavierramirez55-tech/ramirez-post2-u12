@@ -1,6 +1,6 @@
 # Programacion Web - Unidad 11
 
-## Post-Contenido 1 - Refactorizacion con SOLID, DAO/DTO y ControllerAdvice
+## Post-Contenido 2 - Logging con SLF4J/Logback y Documentacion con Swagger/OpenAPI
 
 ## Autor
 
@@ -8,15 +8,17 @@
 - Programa: Ingenieria de Sistemas
 - Asignatura: Programacion Web
 - Unidad: 11 - Buenas Practicas y Patrones de Diseno
-- Actividad: Post-Contenido 1
+- Actividad: Post-Contenido 2
 - Fecha: 09/05/2026
 
 ## Objetivo
 
-Este proyecto refactoriza una API REST de catalogo de productos aplicando buenas
-practicas de arquitectura en capas. La solucion separa responsabilidades con
-SOLID, usa Repository como DAO, DTOs para entrada y salida, un Factory para
-convertir objetos y un `@RestControllerAdvice` para centralizar errores.
+Este proyecto toma como base el catalogo de productos del Post-Contenido 1 y
+agrega logging profesional con SLF4J/Logback y documentacion interactiva con
+Swagger/OpenAPI usando `springdoc-openapi`.
+
+La API mantiene la arquitectura por capas con SOLID, DAO, DTO, Factory y manejo
+centralizado de excepciones mediante `@RestControllerAdvice`.
 
 ## Tecnologias
 
@@ -27,6 +29,9 @@ convertir objetos y un `@RestControllerAdvice` para centralizar errores.
 - Spring Data JPA
 - H2 Database
 - Bean Validation
+- SLF4J
+- Logback
+- springdoc-openapi 2.3.0
 
 ## Arquitectura implementada
 
@@ -56,31 +61,69 @@ src/main/java/com/empresa/catalogo/
 Cliente HTTP
     |
     v
-ProductoController
+ProductoController  ---> Swagger/OpenAPI documenta endpoints y respuestas
     |
     v
-ProductoService (interfaz - DIP)
+ProductoService (interfaz)
     |
     v
-ProductoServiceImpl
-    |                 \
-    v                  v
-ProductoRepository   ProductoFactory
-    |                  |
-    v                  v
-Producto Entity      ProductoRequestDTO / ProductoResponseDTO
+ProductoServiceImpl ---> SLF4J registra operaciones, advertencias y errores
+    |
+    v
+ProductoRepository ---> H2 Database
 
-GlobalExceptionHandler captura excepciones y responde con ApiError.
+Logback envia los registros a consola y a logs/catalogo.log con rotacion diaria.
 ```
 
-## Buenas practicas aplicadas
+## Logging implementado
 
-- SRP: cada clase tiene una responsabilidad concreta.
-- DIP: el controlador depende de `ProductoService`, no de la implementacion.
-- DAO: `ProductoRepository` extiende `JpaRepository`.
-- DTO: `ProductoRequestDTO` valida entrada y `ProductoResponseDTO` controla la salida.
-- Factory: `ProductoFactory` centraliza la conversion entre entidad y DTO.
-- Manejo global: `GlobalExceptionHandler` responde 404, 400 y 500 con `ApiError`.
+`ProductoServiceImpl` usa un logger estatico:
+
+```java
+private static final Logger log = LoggerFactory.getLogger(ProductoServiceImpl.class);
+```
+
+Los mensajes usan placeholders `{}` y niveles adecuados:
+
+- `INFO`: creacion, busqueda exitosa, listado y eliminacion.
+- `DEBUG`: busquedas y listados internos.
+- `WARN`: producto inexistente.
+- `ERROR`: excepciones al crear producto.
+
+## Configuracion de Logback
+
+El archivo `src/main/resources/logback-spring.xml` define:
+
+- Appender `CONSOLA` con formato corto para terminal.
+- Appender `ARCHIVO` con `RollingFileAppender`.
+- Archivo activo: `logs/catalogo.log`.
+- Rotacion diaria: `logs/catalogo.yyyy-MM-dd.log`.
+- Historial: 30 dias.
+- Nivel global: `INFO`.
+- Nivel del paquete `com.empresa.catalogo`: `DEBUG`.
+
+La carpeta `logs/` esta en `.gitignore`, porque contiene archivos generados en
+tiempo de ejecucion.
+
+## Swagger/OpenAPI
+
+La documentacion se configura con:
+
+- `@OpenAPIDefinition` en `CatalogoApplication`.
+- `@Tag`, `@Operation`, `@ApiResponse` y `@Parameter` en `ProductoController`.
+- `@Schema` en `ProductoRequestDTO`, `ProductoResponseDTO` y `ApiError`.
+
+URL de Swagger UI:
+
+```text
+http://localhost:8080/swagger-ui.html
+```
+
+JSON OpenAPI:
+
+```text
+http://localhost:8080/api-docs
+```
 
 ## Ejecucion
 
@@ -100,28 +143,16 @@ http://localhost:8080/api/productos
 
 ## Endpoints
 
-| Metodo | Ruta | Descripcion |
-| --- | --- | --- |
-| GET | `/api/productos` | Lista productos activos |
-| GET | `/api/productos/{id}` | Busca un producto por id |
-| POST | `/api/productos` | Crea un producto |
-| DELETE | `/api/productos/{id}` | Elimina un producto por id |
+| Metodo | Ruta | Respuestas documentadas | Descripcion |
+| --- | --- | --- | --- |
+| GET | `/api/productos` | 200 | Lista productos activos |
+| GET | `/api/productos/{id}` | 200, 404 | Busca un producto por id |
+| POST | `/api/productos` | 201, 400 | Crea un producto |
+| DELETE | `/api/productos/{id}` | 204, 404 | Elimina un producto por id |
 
 ## Pruebas con curl
 
-### Listar productos
-
-```powershell
-curl.exe -i http://localhost:8080/api/productos
-```
-
-Respuesta esperada inicial:
-
-```json
-[]
-```
-
-### Crear producto
+### Crear producto y generar logs
 
 ```powershell
 curl.exe -i -X POST http://localhost:8080/api/productos `
@@ -129,36 +160,19 @@ curl.exe -i -X POST http://localhost:8080/api/productos `
   -d "{\"nombre\":\"Laptop\",\"precio\":3500000,\"categoria\":\"ELECTRONICA\"}"
 ```
 
-Respuesta esperada:
+### Listar productos y generar logs
 
-```json
-{
-  "id": 1,
-  "nombre": "Laptop",
-  "precio": 3500000.0,
-  "categoria": "ELECTRONICA"
-}
+```powershell
+curl.exe -i http://localhost:8080/api/productos
 ```
 
-### Producto inexistente
+### Buscar producto inexistente
 
 ```powershell
 curl.exe -i http://localhost:8080/api/productos/999
 ```
 
-Respuesta esperada:
-
-```json
-{
-  "status": 404,
-  "error": "Not Found",
-  "mensaje": "Producto con id 999 no encontrado.",
-  "timestamp": "...",
-  "path": "/api/productos/999"
-}
-```
-
-### Validacion de entrada
+### Validar body vacio
 
 ```powershell
 curl.exe -i -X POST http://localhost:8080/api/productos `
@@ -166,74 +180,74 @@ curl.exe -i -X POST http://localhost:8080/api/productos `
   -d "{}"
 ```
 
-Respuesta esperada:
-
-```json
-{
-  "status": 400,
-  "error": "Bad Request",
-  "mensaje": "nombre: El nombre es obligatorio; precio: El precio es obligatorio",
-  "timestamp": "...",
-  "path": "/api/productos"
-}
-```
-
 ## Checkpoints y evidencias
 
-### Checkpoint 1
+### Checkpoint 1 - Logs SLF4J en consola
 
-Comprobar que el proyecto compila:
-
-```powershell
-.\mvnw.cmd compile
-```
-
-Tomar captura cuando aparezca `BUILD SUCCESS`.
-
-Evidencia sugerida:
-
-```text
-evidencias/checkpoint-1-compile.png
-```
-
-### Checkpoint 2
-
-Ejecutar la aplicacion:
+1. Ejecutar:
 
 ```powershell
 .\mvnw.cmd spring-boot:run
 ```
 
-En otra terminal probar:
+2. En otra terminal crear y listar productos:
 
 ```powershell
-curl.exe -i http://localhost:8080/api/productos
 curl.exe -i -X POST http://localhost:8080/api/productos -H "Content-Type: application/json" -d "{\"nombre\":\"Laptop\",\"precio\":3500000,\"categoria\":\"ELECTRONICA\"}"
+curl.exe -i http://localhost:8080/api/productos
 ```
 
-Tomar captura del `GET` con lista vacia y del `POST` con estado `201 Created` y
-DTO de respuesta con `id`.
+3. Tomar captura de la consola donde se vean mensajes como:
+
+```text
+INFO  c.e.c.service.ProductoServiceImpl - Creando producto: nombre=Laptop, categoria=ELECTRONICA
+INFO  c.e.c.service.ProductoServiceImpl - Producto creado exitosamente con id=1
+```
 
 Evidencia sugerida:
 
 ```text
-evidencias/checkpoint-2-post-producto.png
+evidencias/post2-checkpoint-1-logs-consola.png
 ```
 
-### Checkpoint 3
+### Checkpoint 2 - Archivo logs/catalogo.log
 
-Con la aplicacion encendida, probar:
+1. Con la aplicacion encendida, ejecutar operaciones `POST`, `GET` y `GET /999`.
+2. Abrir el archivo:
 
 ```powershell
-curl.exe -i http://localhost:8080/api/productos/999
-curl.exe -i -X POST http://localhost:8080/api/productos -H "Content-Type: application/json" -d "{}"
+Get-Content logs\catalogo.log
 ```
 
-Tomar captura del 404 y del 400 con cuerpo JSON `ApiError`.
+3. Tomar captura del terminal o del editor mostrando registros con fecha completa.
 
-Evidencias sugeridas:
+Evidencia sugerida:
 
 ```text
-evidencias/checkpoint-3-error-404.png
-evidencias/checkpoint-3-error-400.png
+evidencias/post2-checkpoint-2-archivo-log.png
 ```
+
+### Checkpoint 3 - Swagger UI
+
+1. Abrir en el navegador:
+
+```text
+http://localhost:8080/swagger-ui.html
+```
+
+2. Expandir el grupo `Productos`.
+3. Expandir al menos un endpoint, por ejemplo `POST /api/productos`.
+4. Verificar que aparecen descripcion, request body y respuestas `201` y `400`.
+5. Revisar tambien `GET /api/productos/{id}` para confirmar `200` y `404`.
+
+Evidencia sugerida:
+
+```text
+evidencias/post2-checkpoint-3-swagger-ui.png
+```
+
+## Recomendacion para entrega
+
+Guardar las capturas dentro de `evidencias/` con los nombres sugeridos y subirlas
+en un commit adicional de documentacion si el profesor exige que las imagenes
+queden dentro del repositorio.
