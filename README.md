@@ -1,158 +1,74 @@
-# Programacion Web - Unidad 11
+# Programacion Web - Unidad 12
 
-## Post-Contenido 2 - Logging con SLF4J/Logback y Documentacion con Swagger/OpenAPI
+## Post-Contenido 1 - Contenedorizar Spring Boot y desplegar en Railway
 
 ## Autor
 
 - Nombre: Kevin Javier Ramirez
 - Programa: Ingenieria de Sistemas
 - Asignatura: Programacion Web
-- Unidad: 11 - Buenas Practicas y Patrones de Diseno
-- Actividad: Post-Contenido 2
-- Fecha: 09/05/2026
+- Unidad: 12 - Despliegue y CI/CD
+- Actividad: Post-Contenido 1
+- Proyecto: ramirez-post1-u12
 
 ## Objetivo
 
-Este proyecto toma como base el catalogo de productos del Post-Contenido 1 y
-agrega logging profesional con SLF4J/Logback y documentacion interactiva con
-Swagger/OpenAPI usando `springdoc-openapi`.
-
-La API mantiene la arquitectura por capas con SOLID, DAO, DTO, Factory y manejo
-centralizado de excepciones mediante `@RestControllerAdvice`.
+API REST de catalogo de productos contenedorizada con Docker multi-stage,
+perfil de produccion por variables de entorno, PostgreSQL local con Docker
+Compose y preparacion para despliegue en Railway.
 
 ## Tecnologias
 
-- Java 17
+- Java 21
 - Spring Boot 3.2.5
-- Maven
+- Maven Wrapper
 - Spring Web
 - Spring Data JPA
-- H2 Database
-- Bean Validation
-- SLF4J
-- Logback
-- springdoc-openapi 2.3.0
+- Spring Boot Actuator
+- PostgreSQL 16
+- Flyway
+- Docker y Docker Compose
 
-## Arquitectura implementada
+## Endpoints REST
 
-```text
-src/main/java/com/empresa/catalogo/
-|-- controller/
-|   `-- ProductoController.java
-|-- service/
-|   |-- ProductoService.java
-|   `-- ProductoServiceImpl.java
-|-- repository/
-|   `-- ProductoRepository.java
-|-- dto/
-|   |-- ProductoRequestDTO.java
-|   `-- ProductoResponseDTO.java
-|-- entity/
-|   `-- Producto.java
-|-- factory/
-|   `-- ProductoFactory.java
-`-- exception/
-    |-- ApiError.java
-    |-- GlobalExceptionHandler.java
-    `-- RecursoNoEncontradoException.java
-```
+| Metodo | Ruta | Descripcion |
+| --- | --- | --- |
+| GET | `/actuator/health` | Healthcheck de la aplicacion |
+| GET | `/api/productos` | Lista productos activos |
+| GET | `/api/productos/{id}` | Busca un producto por id |
+| POST | `/api/productos` | Crea un producto |
+| DELETE | `/api/productos/{id}` | Elimina un producto por id |
 
-```text
-Cliente HTTP
-    |
-    v
-ProductoController  ---> Swagger/OpenAPI documenta endpoints y respuestas
-    |
-    v
-ProductoService (interfaz)
-    |
-    v
-ProductoServiceImpl ---> SLF4J registra operaciones, advertencias y errores
-    |
-    v
-ProductoRepository ---> H2 Database
+## Variables de entorno de produccion
 
-Logback envia los registros a consola y a logs/catalogo.log con rotacion diaria.
-```
+| Variable | Descripcion | Ejemplo local |
+| --- | --- | --- |
+| `SPRING_PROFILES_ACTIVE` | Activa el perfil productivo | `prod` |
+| `DATABASE_URL` | URL JDBC de PostgreSQL | `jdbc:postgresql://db:5432/appdb` |
+| `DB_USER` | Usuario de PostgreSQL | `appuser` |
+| `DB_PASS` | Contrasena de PostgreSQL | `apppass` |
 
-## Logging implementado
-
-`ProductoServiceImpl` usa un logger estatico:
-
-```java
-private static final Logger log = LoggerFactory.getLogger(ProductoServiceImpl.class);
-```
-
-Los mensajes usan placeholders `{}` y niveles adecuados:
-
-- `INFO`: creacion, busqueda exitosa, listado y eliminacion.
-- `DEBUG`: busquedas y listados internos.
-- `WARN`: producto inexistente.
-- `ERROR`: excepciones al crear producto.
-
-## Configuracion de Logback
-
-El archivo `src/main/resources/logback-spring.xml` define:
-
-- Appender `CONSOLA` con formato corto para terminal.
-- Appender `ARCHIVO` con `RollingFileAppender`.
-- Archivo activo: `logs/catalogo.log`.
-- Rotacion diaria: `logs/catalogo.yyyy-MM-dd.log`.
-- Historial: 30 dias.
-- Nivel global: `INFO`.
-- Nivel del paquete `com.empresa.catalogo`: `DEBUG`.
-
-La carpeta `logs/` esta en `.gitignore`, porque contiene archivos generados en
-tiempo de ejecucion.
-
-## Swagger/OpenAPI
-
-La documentacion se configura con:
-
-- `@OpenAPIDefinition` en `CatalogoApplication`.
-- `@Tag`, `@Operation`, `@ApiResponse` y `@Parameter` en `ProductoController`.
-- `@Schema` en `ProductoRequestDTO`, `ProductoResponseDTO` y `ApiError`.
-
-URL de Swagger UI:
-
-```text
-http://localhost:8080/swagger-ui.html
-```
-
-JSON OpenAPI:
-
-```text
-http://localhost:8080/api-docs
-```
-
-## Ejecucion
-
-Desde PowerShell, en la raiz del proyecto:
+## Construccion Docker local
 
 ```powershell
-cd "C:\Users\KEVIN\Downloads\programaciónWeb\catalogo"
-.\mvnw.cmd compile
-.\mvnw.cmd spring-boot:run
+docker build -t mi-app:local .
+docker images mi-app:local
 ```
 
-La API queda disponible en:
+La imagen usa dos etapas:
 
-```text
-http://localhost:8080/api/productos
+1. `eclipse-temurin:21-jdk-alpine` para compilar con Maven Wrapper.
+2. `eclipse-temurin:21-jre-alpine` para ejecutar solo el JAR con usuario no root.
+
+## Ejecucion con Docker Compose
+
+```powershell
+docker compose up -d --build
+docker compose ps
+curl.exe http://localhost:8080/actuator/health
 ```
 
-## Endpoints
-
-| Metodo | Ruta | Respuestas documentadas | Descripcion |
-| --- | --- | --- | --- |
-| GET | `/api/productos` | 200 | Lista productos activos |
-| GET | `/api/productos/{id}` | 200, 404 | Busca un producto por id |
-| POST | `/api/productos` | 201, 400 | Crea un producto |
-| DELETE | `/api/productos/{id}` | 204, 404 | Elimina un producto por id |
-
-## Pruebas con curl
-
-### Crear producto y generar logs
+Crear un producto:
 
 ```powershell
 curl.exe -i -X POST http://localhost:8080/api/productos `
@@ -160,94 +76,105 @@ curl.exe -i -X POST http://localhost:8080/api/productos `
   -d "{\"nombre\":\"Laptop\",\"precio\":3500000,\"categoria\":\"ELECTRONICA\"}"
 ```
 
-### Listar productos y generar logs
+Consultar endpoints:
 
 ```powershell
 curl.exe -i http://localhost:8080/api/productos
+curl.exe -i http://localhost:8080/api/productos/1
+curl.exe -i -X DELETE http://localhost:8080/api/productos/1
 ```
 
-### Buscar producto inexistente
+Detener el stack:
 
 ```powershell
-curl.exe -i http://localhost:8080/api/productos/999
+docker compose down
 ```
 
-### Validar body vacio
+## Despliegue en Railway
+
+1. Entrar a `https://railway.app` con GitHub.
+2. Crear un proyecto con `Deploy from GitHub repo`.
+3. Seleccionar el repositorio `ramirez-post1-u12`.
+4. Confirmar que Railway detecta el `Dockerfile`.
+5. Agregar una base de datos: `+ New` -> `Database` -> `Add PostgreSQL`.
+6. En el servicio de la aplicacion, abrir `Variables` y crear:
+
+```text
+SPRING_PROFILES_ACTIVE=prod
+DATABASE_URL=${{Postgres.DATABASE_URL}}
+DB_USER=${{Postgres.PGUSER}}
+DB_PASS=${{Postgres.PGPASSWORD}}
+```
+
+7. En `Settings` -> `Networking`, seleccionar `Generate Domain`.
+8. Probar la URL publica:
 
 ```powershell
-curl.exe -i -X POST http://localhost:8080/api/productos `
-  -H "Content-Type: application/json" `
-  -d "{}"
+curl.exe https://TU-DOMINIO.up.railway.app/actuator/health
+curl.exe -i -X POST https://TU-DOMINIO.up.railway.app/api/productos -H "Content-Type: application/json" -d "{\"nombre\":\"Laptop\",\"precio\":3500000,\"categoria\":\"ELECTRONICA\"}"
+curl.exe -i https://TU-DOMINIO.up.railway.app/api/productos
+curl.exe -i https://TU-DOMINIO.up.railway.app/api/productos/1
 ```
 
-## Checkpoints y evidencias
+## Checkpoints y capturas sugeridas
 
-### Checkpoint 1 - Logs SLF4J en consola
+### Checkpoint 1 - Dockerfile multi-stage
 
-1. Ejecutar:
+Capturar:
+
+- `Dockerfile` abierto mostrando `AS builder`, `21-jdk-alpine`, `21-jre-alpine`, `USER spring` y `ENTRYPOINT`.
+- `.dockerignore` mostrando `target/` y `.git/`.
+- Terminal con:
 
 ```powershell
-.\mvnw.cmd spring-boot:run
+docker build -t mi-app:local .
+docker images mi-app:local
 ```
 
-2. En otra terminal crear y listar productos:
+Evidencia sugerida: `evidencias/u12-post1-checkpoint-1-docker-build.png`.
+
+### Checkpoint 2 - Docker Compose y PostgreSQL local
+
+Capturar:
+
+- Terminal con:
+
+```powershell
+docker compose up -d --build
+docker compose ps
+curl.exe http://localhost:8080/actuator/health
+```
+
+- Respuesta de al menos un endpoint REST:
 
 ```powershell
 curl.exe -i -X POST http://localhost:8080/api/productos -H "Content-Type: application/json" -d "{\"nombre\":\"Laptop\",\"precio\":3500000,\"categoria\":\"ELECTRONICA\"}"
 curl.exe -i http://localhost:8080/api/productos
 ```
 
-3. Tomar captura de la consola donde se vean mensajes como:
+Evidencia sugerida: `evidencias/u12-post1-checkpoint-2-compose-health-endpoints.png`.
 
-```text
-INFO  c.e.c.service.ProductoServiceImpl - Creando producto: nombre=Laptop, categoria=ELECTRONICA
-INFO  c.e.c.service.ProductoServiceImpl - Producto creado exitosamente con id=1
-```
+### Checkpoint 3 - Railway
 
-Evidencia sugerida:
+Capturar:
 
-```text
-evidencias/post2-checkpoint-1-logs-consola.png
-```
-
-### Checkpoint 2 - Archivo logs/catalogo.log
-
-1. Con la aplicacion encendida, ejecutar operaciones `POST`, `GET` y `GET /999`.
-2. Abrir el archivo:
+- Panel de Railway con el servicio de la aplicacion desplegado.
+- Servicio PostgreSQL creado en Railway.
+- Variables configuradas en Railway sin mostrar valores secretos completos.
+- Dominio publico generado.
+- Terminal o navegador con:
 
 ```powershell
-Get-Content logs\catalogo.log
+curl.exe https://TU-DOMINIO.up.railway.app/actuator/health
+curl.exe -i -X POST https://TU-DOMINIO.up.railway.app/api/productos -H "Content-Type: application/json" -d "{\"nombre\":\"Mouse\",\"precio\":85000,\"categoria\":\"ACCESORIOS\"}"
+curl.exe -i https://TU-DOMINIO.up.railway.app/api/productos
+curl.exe -i https://TU-DOMINIO.up.railway.app/api/productos/1
 ```
 
-3. Tomar captura del terminal o del editor mostrando registros con fecha completa.
+Evidencia sugerida: `evidencias/u12-post1-checkpoint-3-railway.png`.
 
-Evidencia sugerida:
+## Repositorio
 
 ```text
-evidencias/post2-checkpoint-2-archivo-log.png
+https://github.com/kevinjavierramirez55-tech/ramirez-post1-u12
 ```
-
-### Checkpoint 3 - Swagger UI
-
-1. Abrir en el navegador:
-
-```text
-http://localhost:8080/swagger-ui.html
-```
-
-2. Expandir el grupo `Productos`.
-3. Expandir al menos un endpoint, por ejemplo `POST /api/productos`.
-4. Verificar que aparecen descripcion, request body y respuestas `201` y `400`.
-5. Revisar tambien `GET /api/productos/{id}` para confirmar `200` y `404`.
-
-Evidencia sugerida:
-
-```text
-evidencias/post2-checkpoint-3-swagger-ui.png
-```
-
-## Recomendacion para entrega
-
-Guardar las capturas dentro de `evidencias/` con los nombres sugeridos y subirlas
-en un commit adicional de documentacion si el profesor exige que las imagenes
-queden dentro del repositorio.
