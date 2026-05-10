@@ -71,7 +71,7 @@ curl.exe http://localhost:8080/actuator/health
 Crear un producto:
 
 ```powershell
-curl.exe -i -X POST http://localhost:8080/api/productos `
+curl.exe -i -X POST http://localhost:8081/api/productos `
   -H "Content-Type: application/json" `
   -d "{\"nombre\":\"Laptop\",\"precio\":3500000,\"categoria\":\"ELECTRONICA\"}"
 ```
@@ -79,9 +79,9 @@ curl.exe -i -X POST http://localhost:8080/api/productos `
 Consultar endpoints:
 
 ```powershell
-curl.exe -i http://localhost:8080/api/productos
-curl.exe -i http://localhost:8080/api/productos/1
-curl.exe -i -X DELETE http://localhost:8080/api/productos/1
+curl.exe -i http://localhost:8081/api/productos
+curl.exe -i http://localhost:8081/api/productos/1
+curl.exe -i -X DELETE http://localhost:8081/api/productos/1
 ```
 
 Detener el stack:
