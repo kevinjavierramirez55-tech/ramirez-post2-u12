@@ -1,6 +1,6 @@
 # Programacion Web - Unidad 12
 
-## Post-Contenido 1 - Contenedorizar Spring Boot y desplegar en Railway
+## Post-Contenido 2 - Pipeline CI/CD con GitHub Actions y Docker Hub
 
 ## Autor
 
@@ -8,173 +8,134 @@
 - Programa: Ingenieria de Sistemas
 - Asignatura: Programacion Web
 - Unidad: 12 - Despliegue y CI/CD
-- Actividad: Post-Contenido 1
-- Proyecto: ramirez-post1-u12
+- Actividad: Post-Contenido 2
+- Proyecto: ramirez-post2-u12
 
 ## Objetivo
 
-API REST de catalogo de productos contenedorizada con Docker multi-stage,
-perfil de produccion por variables de entorno, PostgreSQL local con Docker
-Compose y preparacion para despliegue en Railway.
+Diseñar e implementar un pipeline de integración y entrega continua (CI/CD) con GitHub Actions que automatiza compilación, pruebas con cobertura JaCoCo, construcción de imagen Docker multi-stage, y publicación en Docker Hub.
 
 ## Tecnologias
 
 - Java 21
 - Spring Boot 3.2.5
 - Maven Wrapper
-- Spring Web
-- Spring Data JPA
-- Spring Boot Actuator
-- PostgreSQL 16
-- Flyway
-- Docker y Docker Compose
+- JaCoCo 0.8.10 para reporte de cobertura
+- Docker multi-stage build
+- GitHub Actions
+- Docker Hub
 
-## Endpoints REST
+## Pipeline CI/CD
 
-| Metodo | Ruta | Descripcion |
+El pipeline se ejecuta automáticamente en cada push a `main` y realiza:
+
+1. **Build-and-test**: Compilación con Maven y ejecución de pruebas unitarias
+2. **Publicación de reporte JaCoCo** como artefacto descargable (retenido 7 días)
+3. **Docker-publish**: Construcción de imagen Docker con multi-stage build
+4. **Publicación en Docker Hub** con tags `latest` y `sha-<commit>`
+
+### GitHub Secrets Requeridos
+
+Los siguientes secrets deben configurarse en Settings → Secrets and variables → Actions:
+
+| Secret | Descripción | Valor |
 | --- | --- | --- |
-| GET | `/actuator/health` | Healthcheck de la aplicacion |
-| GET | `/api/productos` | Lista productos activos |
-| GET | `/api/productos/{id}` | Busca un producto por id |
-| POST | `/api/productos` | Crea un producto |
-| DELETE | `/api/productos/{id}` | Elimina un producto por id |
+| `DOCKERHUB_USERNAME` | Usuario de Docker Hub | Nombre de usuario |
+| `DOCKERHUB_TOKEN` | Access Token de Docker Hub | Token generado en hub.docker.com |
 
-## Variables de entorno de produccion
+### Flujo del Pipeline
 
-| Variable | Descripcion | Ejemplo local |
-| --- | --- | --- |
-| `SPRING_PROFILES_ACTIVE` | Activa el perfil productivo | `prod` |
-| `DATABASE_URL` | URL JDBC de PostgreSQL | `jdbc:postgresql://db:5432/appdb` |
-| `DB_USER` | Usuario de PostgreSQL | `appuser` |
-| `DB_PASS` | Contrasena de PostgreSQL | `apppass` |
+```
+┌─────────────────┐
+│ Push a main     │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────────────────┐
+│ Job 1: build-and-test       │
+│  • Maven compile            │
+│  • Maven test               │
+│  • Generate JaCoCo report   │
+│  • Upload artifact (7 days) │
+└────────┬────────────────────┘
+         │
+         ▼(if successful)
+┌─────────────────────────────────┐
+│ Job 2: docker-publish           │
+│  • Login to Docker Hub          │
+│  • Build Docker image           │
+│  • Push with tags:              │
+│    - latest                     │
+│    - sha-<commit>               │
+└─────────────────────────────────┘
+```
 
-## Construccion Docker local
+## Configuración
+
+### 1. Crear Access Token en Docker Hub
+
+1. Ir a hub.docker.com y iniciar sesión
+2. Account → Settings → Security
+3. "New Access Token"
+4. Seleccionar permisos: Read & Write
+5. Copiar el token generado (no se puede recuperar después)
+
+### 2. Agregar Secrets a GitHub
+
+1. Repositorio → Settings → Secrets and variables → Actions
+2. Crear `DOCKERHUB_USERNAME` con el usuario de Docker Hub
+3. Crear `DOCKERHUB_TOKEN` con el token generado
+
+### 3. Archivo del Workflow
+
+El archivo `.github/workflows/ci.yml` define el pipeline completo.
+
+## Ejecución Manual
+
+Para ejecutar el pipeline, simplemente hacer push a la rama `main`:
 
 ```powershell
-docker build -t mi-app:local .
-docker images mi-app:local
+git add .
+git commit -m "feat: implementar pipeline CI/CD"
+git push origin main
 ```
 
-La imagen usa dos etapas:
+## Verificación
 
-1. `eclipse-temurin:21-jdk-alpine` para compilar con Maven Wrapper.
-2. `eclipse-temurin:21-jre-alpine` para ejecutar solo el JAR con usuario no root.
+### En GitHub Actions:
 
-## Ejecucion con Docker Compose
+1. Ir a Actions → CI/CD — Build, Test & Docker Publish
+2. Ver el estado del workflow en ejecución
+3. Ambos jobs deben completar con check verde ✓
+
+### En Docker Hub:
+
+1. Ir a hub.docker.com/r/<usuario>/mi-spring-app
+2. Verificar que la imagen fue publicada
+3. Tags visibles: `latest` y `sha-<commit>`
+
+### Descargar la Imagen
 
 ```powershell
-docker compose up -d --build
-docker compose ps
-curl.exe http://localhost:8080/actuator/health
+docker pull <usuario>/mi-spring-app:latest
+docker run -p 8080:8080 -e SPRING_PROFILES_ACTIVE=dev <usuario>/mi-spring-app:latest
 ```
 
-Crear un producto:
+## Artefactos del Pipeline
 
-```powershell
-curl.exe -i -X POST http://localhost:8081/api/productos `
-  -H "Content-Type: application/json" `
-  -d "{\"nombre\":\"Laptop\",\"precio\":3500000,\"categoria\":\"ELECTRONICA\"}"
+- **JaCoCo Report**: Descargable en Actions → workflow → Artifacts (retenido 7 días)
+- **Docker Image**: Disponible en Docker Hub (repositorio público)
+
+## Badge de Estado
+
+Agregar al README principal:
+
+```markdown
+![CI/CD Status](https://github.com/kevinjavierramirez55-tech/ramirez-post2-u12/actions/workflows/ci.yml/badge.svg)
 ```
-
-Consultar endpoints:
-
-```powershell
-curl.exe -i http://localhost:8081/api/productos
-curl.exe -i http://localhost:8081/api/productos/1
-curl.exe -i -X DELETE http://localhost:8081/api/productos/1
-```
-
-Detener el stack:
-
-```powershell
-docker compose down
-```
-
-## Despliegue en Railway
-
-1. Entrar a `https://railway.app` con GitHub.
-2. Crear un proyecto con `Deploy from GitHub repo`.
-3. Seleccionar el repositorio `ramirez-post1-u12`.
-4. Confirmar que Railway detecta el `Dockerfile`.
-5. Agregar una base de datos: `+ New` -> `Database` -> `Add PostgreSQL`.
-6. En el servicio de la aplicacion, abrir `Variables` y crear:
-
-```text
-SPRING_PROFILES_ACTIVE=prod
-DATABASE_URL=${{Postgres.DATABASE_URL}}
-DB_USER=${{Postgres.PGUSER}}
-DB_PASS=${{Postgres.PGPASSWORD}}
-```
-
-7. En `Settings` -> `Networking`, seleccionar `Generate Domain`.
-8. Probar la URL publica:
-
-```powershell
-curl.exe https://TU-DOMINIO.up.railway.app/actuator/health
-curl.exe -i -X POST https://TU-DOMINIO.up.railway.app/api/productos -H "Content-Type: application/json" -d "{\"nombre\":\"Laptop\",\"precio\":3500000,\"categoria\":\"ELECTRONICA\"}"
-curl.exe -i https://TU-DOMINIO.up.railway.app/api/productos
-curl.exe -i https://TU-DOMINIO.up.railway.app/api/productos/1
-```
-
-## Checkpoints y capturas sugeridas
-
-### Checkpoint 1 - Dockerfile multi-stage
-
-Capturar:
-
-- `Dockerfile` abierto mostrando `AS builder`, `21-jdk-alpine`, `21-jre-alpine`, `USER spring` y `ENTRYPOINT`.
-- `.dockerignore` mostrando `target/` y `.git/`.
-- Terminal con:
-
-```powershell
-docker build -t mi-app:local .
-docker images mi-app:local
-```
-
-Evidencia sugerida: `evidencias/u12-post1-checkpoint-1-docker-build.png`.
-
-### Checkpoint 2 - Docker Compose y PostgreSQL local
-
-Capturar:
-
-- Terminal con:
-
-```powershell
-docker compose up -d --build
-docker compose ps
-curl.exe http://localhost:8080/actuator/health
-```
-
-- Respuesta de al menos un endpoint REST:
-
-```powershell
-curl.exe -i -X POST http://localhost:8080/api/productos -H "Content-Type: application/json" -d "{\"nombre\":\"Laptop\",\"precio\":3500000,\"categoria\":\"ELECTRONICA\"}"
-curl.exe -i http://localhost:8080/api/productos
-```
-
-Evidencia sugerida: `evidencias/u12-post1-checkpoint-2-compose-health-endpoints.png`.
-
-### Checkpoint 3 - Railway
-
-Capturar:
-
-- Panel de Railway con el servicio de la aplicacion desplegado.
-- Servicio PostgreSQL creado en Railway.
-- Variables configuradas en Railway sin mostrar valores secretos completos.
-- Dominio publico generado.
-- Terminal o navegador con:
-
-```powershell
-curl.exe https://TU-DOMINIO.up.railway.app/actuator/health
-curl.exe -i -X POST https://TU-DOMINIO.up.railway.app/api/productos -H "Content-Type: application/json" -d "{\"nombre\":\"Mouse\",\"precio\":85000,\"categoria\":\"ACCESORIOS\"}"
-curl.exe -i https://TU-DOMINIO.up.railway.app/api/productos
-curl.exe -i https://TU-DOMINIO.up.railway.app/api/productos/1
-```
-
-Evidencia sugerida: `evidencias/u12-post1-checkpoint-3-railway.png`.
 
 ## Repositorio
 
 ```text
-https://github.com/kevinjavierramirez55-tech/ramirez-post1-u12
+https://github.com/kevinjavierramirez55-tech/ramirez-post2-u12
 ```
