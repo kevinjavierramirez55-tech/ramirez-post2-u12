@@ -2,6 +2,10 @@
 
 ## Post-Contenido 2 - Pipeline CI/CD con GitHub Actions y Docker Hub
 
+![CI/CD Status](https://github.com/kevinjavierramirez55-tech/ramirez-post2-u12/actions/workflows/ci.yml/badge.svg)
+
+---
+
 ## Autor
 
 - Nombre: Kevin Ramirez
@@ -20,19 +24,45 @@ Diseñar e implementar un pipeline de integración y entrega continua (CI/CD) co
 - Java 21
 - Spring Boot 3.2.5
 - Maven Wrapper
-- JaCoCo 0.8.10 para reporte de cobertura
+- JaCoCo 0.8.10 
 - Docker multi-stage build
 - GitHub Actions
+- Github
 - Docker Hub
+- PowerShell
 
-## Pipeline CI/CD
+# Arquitectura del Pipeline CI/CD
 
-El pipeline se ejecuta automáticamente en cada push a `main` y realiza:
+El workflow se ejecuta automáticamente en cada:
 
-1. **Build-and-test**: Compilación con Maven y ejecución de pruebas unitarias
-2. **Publicación de reporte JaCoCo** como artefacto descargable (retenido 7 días)
-3. **Docker-publish**: Construcción de imagen Docker con multi-stage build
-4. **Publicación en Docker Hub** con tags `latest` y `sha-<commit>`
+- `push` sobre la rama `main`
+- `pull_request` hacia la rama `main`
+
+El pipeline está compuesto por dos jobs principales:
+
+## 1. `build-and-test`
+
+Este job realiza:
+
+- Descarga del código fuente
+- Configuración de Java 21
+- Compilación del proyecto
+- Ejecución de pruebas unitarias
+- Generación del reporte JaCoCo
+- Publicación del reporte como artifact
+
+## 2. `docker-publish`
+
+Este job se ejecuta únicamente si el primero finaliza correctamente.
+
+Realiza:
+
+- Login automático en Docker Hub
+- Construcción de imagen Docker multi-stage
+- Generación de tags automáticos
+- Publicación de imagen en Docker Hub
+
+---
 
 ### GitHub Secrets Requeridos
 
@@ -100,6 +130,16 @@ git commit -m "feat: implementar pipeline CI/CD"
 git push origin main
 ```
 
+## Características implementadas
+
+- Imagen base Java 21
+- Compilación separada en etapa builder
+- Imagen final ligera con JRE
+- Usuario no root
+- Exposición del puerto 8080
+
+---
+
 ## Verificación
 
 ### En GitHub Actions:
@@ -139,3 +179,33 @@ Agregar al README principal:
 ```text
 https://github.com/kevinjavierramirez55-tech/ramirez-post2-u12
 ```
+
+## Capturas del Proyecto
+
+Las capturas se encuentran en la carpeta `evidencias/`.
+
+### Secrets DOCKERHUB_USERNAME y DOCKERHUB_TOKEN creados
+
+![secrets](evidencias/secrets_creados.png)
+
+### Jobs build-and-test y docker-publish pasados
+
+![jobs](evidencias/jobs_passed.png)
+
+### Logs maven de job
+
+![logs](evidencias/build-and-test_logs.png)
+
+
+### Reporte de jacoco
+
+![reporte_jacoco](evidencias/jacoco_report.png)
+
+### Tags y repo de Docker Hub
+
+![tags_repo](evidencias/tags_repo.png)
+
+### Docker pull exitoso imagen publicada
+
+![cp3_docker_hub](evidencias/cp3_docker_hub.png)
+
