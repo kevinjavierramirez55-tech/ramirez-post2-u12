@@ -4,7 +4,7 @@
 
 ## Autor
 
-- Nombre: Kevin Javier Ramirez
+- Nombre: Kevin Ramirez
 - Programa: Ingenieria de Sistemas
 - Asignatura: Programacion Web
 - Unidad: 12 - Despliegue y CI/CD
